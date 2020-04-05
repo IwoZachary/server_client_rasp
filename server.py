@@ -8,25 +8,50 @@ class Worker:
         self.cardNumb=cardNumb
         self.name=name
         self.isPresent=False
-        self.file=open("/home/iwo/Desktop/server_client/server_client_rasp/workerFiles/"+format(cardNumb)+".txt","a")
-        self.file.write(name+" added at "+format(datetime.datetime.now())+'\n')
-        self.file.close()
-        print("Done")
+        try:
+            file=open("/home/iwo/Desktop/server_client/server_client_rasp/workerFiles/"+format(cardNumb)+".txt","a")
+            file.write(name+" added at "+format(datetime.datetime.now())+'\n')
+            file.close()
+        except:
+           print("Worker init failed")
+        print("Worker "+self.name+" added")
+    def identified(self):
+        try:
+            file=open("/home/iwo/Desktop/server_client/server_client_rasp/workerFiles/"+format(self.cardNumb)+".txt","a")
+            if self.isPresent==False:
+                file.write(" arrived at "+format(datetime.datetime.now()))
+                self.isPresent=True
+            else:
+                file.write(" ||  log out at "+format(datetime.datetime.now())+'\n')
+                self.isPresent=False
+            file.close()
+        except:
+            print("ERROR")
 
 class Unidentified:
     def __init__(self):
-        self.file=open("/home/iwo/Desktop/server_client/server_client_rasp/Unidentified/"+"Unauthorisied"+".txt","a")
-        self.file.write("List of unauthorisied attempts to connect to the server valid from "+format(datetime.datetime.now())+'\n')
-        self.file.close()
-        self.setOfUnident={}
+        try:
+            file=open("/home/iwo/Desktop/server_client/server_client_rasp/Unidentified/"+"Unauthorisied"+".txt","a")
+            file.write("List of unauthorisied attempts to connect to the server valid from "+format(datetime.datetime.now())+'\n')
+            file.close()
+        except:
+            print("Undefined list initializing faile")
+        self.setOfUnident={0}
         print("Done")
         
-    def addUndefined(self,cardNumb):
-        self.setOfUnitendent.add(cardNumb)
+    def addUndefined(self,num):
+        
+        self.setOfUnident.add(int(num))
+        #print("un")
         try:
-            self.file=open("/home/iwo/Desktop/server_client/server_client_rasp/Unidentified/"+"Unauthorisied"+".txt","a")
-            self.file.wirte(format(cardNumb)+"  "+format(datetime.datetime.now())+'\n')
-            self.file.close()
+            file=open("/home/iwo/Desktop/server_client/server_client_rasp/Unidentified/"+"Unauthorisied"+".txt","a")
+            
+            print(str(num))
+            print(format(num))
+            file.wirte(str(num))
+            file.write("beka XD\n")
+            print("b")
+            file.close()
         except:
             print("Sorry an error occured, which can makes your list leaking data")
 
@@ -36,34 +61,50 @@ class Server:
 
     def __init__(self):
         self.workerList=[]
-        self.undidentified=Unidentified()
-        #broker_adress="192.168.233.128"
-        #self.client = mqtt.Client("P1") 
-        #self.client.connect(broker_adress)
-        #self.client.subscribe("test")
+        self.unidentified=Unidentified()
+        
         
         
     def connect(self):
+        def on_connect(client, userdata, flags, rc):
+            print("Connected with result code "+str(rc))
+            client.subscribe("test")
+    
+        
         def on_message(client,userdata , message):
             print("message received " ,str(message.payload.decode("utf-8")))
+            check=False
+            
+            for el in self.workerList:
+                #print("i")
+                if int(message.payload.decode("utf-8"))==el.cardNumb:
+                    #print("a")
+                    el.identified()
+                    check=True
+                    break
+                    
+            if check==False:
+                
+                self.unidentified.addUndefined(int(message.payload.decode("utf-8")))
+               
+                   
+        broker_adress="192.168.69.139"
+        client = mqtt.Client()
         
-        broker_adress="192.168.233.128"
-        client = mqtt.Client("P1") #create new instance
-        client.connect(broker_adress) #connect to broker
-        client.subscribe("test")
-        client.on_message=on_message
-        while True:
-            client.loop_start()
-            #client.subscribe("test")
-            client.on_message=on_message
+        client.on_connect = on_connect
+        client.on_message = on_message
+        
+        client.connect(broker_adress)
+        client.loop_forever()
         
 
         
         
     def addWorker(self,cardNum,name):
         self.workerList.append(Worker(cardNum,name))
-        if cardNum in self.unidentified.setOfUnitendent:
-            self.unidentified.setOfUnitendent.remove(cardNum)
+        #print(len(self.workerList))
+        if cardNum in self.unidentified.setOfUnident:
+            self.unidentified.setOfUnident.remove(cardNum)
     
     def removeWorker(self,num):
         for el in self.workerList:
@@ -104,6 +145,8 @@ class Server:
                 
             
 s=Server()
+s.addWorker(123,"Marek")
+s.addWorker(124,"Wika")
 #s.reading_func()
 s.connect()
 

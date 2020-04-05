@@ -1,0 +1,16 @@
+class Unidentified:
+    def __init__(self):
+        self.file=open("/home/iwo/Desktop/server_client/server_client_rasp/Unidentified/"+"Unauthorisied"+".txt","a")
+        self.file.write("List of unauthorisied attempts to connect to the server valid from "+format(datetime.datetime.now())+'\n')
+        self.file.close()
+        self.setOfUnident={}
+        print("Done")
+        
+    def addUndefined(self,cardNumb):
+        self.setOfUnitendent.add(cardNumb)
+        try:
+            self.file=open("/home/iwo/Desktop/server_client/server_client_rasp/Unidentified/"+"Unauthorisied"+".txt","a")
+            self.file.wirte(format(cardNumb)+"  "+format(datetime.datetime.now())+'\n')
+            self.file.close()
+        except:
+            print("Sorry an error occured, which can makes your list leaking data")

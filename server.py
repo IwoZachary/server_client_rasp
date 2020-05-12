@@ -1,10 +1,7 @@
 import datetime
 import os
-import time
 import threading
-from threading import Thread
-import multiprocessing as mp
-from multiprocessing import Process
+
 from datetime import datetime
 import csv
 
@@ -12,36 +9,36 @@ import csv
 import paho.mqtt.client as mqtt
 class Worker:
     def __init__(self,cardNumb,name):
-        self.cardNumb=cardNumb
-        self.name=name
-        self.isPresent=False
-        self.hour=0
+        self.cardNumb=cardNumb #numer karty RFID
+        self.name=name      #imie i nazwisko pracownika
+        self.isPresent=False     #czy jest w pracy
+        self.hour=0              #poczatkowy czas spędzony w pracy
         now = datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
         try:
-            file=open("/home/iwo/Desktop/server_client/server_client_rasp/workerFiles/"+format(cardNumb)+".txt","a")
+            file=open("C:/server_client_rasp/workerFiles/" +format(cardNumb)+".txt","w")        #tworzenie pliku konfiguracyjnego dla pracownika
             file.write(name+" added at "+dt_string+'\n')
             file.close()
         except:
-           print("Worker init failed")
+            print("Worker init failed")
         print("Worker "+self.name+" added")
     def identified(self,name):
         now = datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
         try:
-            file=open("/home/iwo/Desktop/server_client/server_client_rasp/workerFiles/"+format(self.cardNumb)+".txt","a")
+            file=open("C:/server_client_rasp/workerFiles/"+format(self.cardNumb)+".txt","a")
             if self.isPresent==False:
-                file.write("ARRIVE used station: "+name+ " at "+"|"+dt_string+"|")
+                file.write("ARRIVE used terminal: "+name+ " at "+"|"+dt_string+"|")             #wpisywanie aktywności do pliku
                 self.isPresent=True
             else:
-                file.write("LEAVE used station: "+name+" at |"+dt_string+"|\n")
+                file.write("LEAVE used terminal: "+name+" at |"+dt_string+"|\n")                 #wpisywanie aktywności do pliku
                 self.isPresent=False
             file.close()
         except:
             print("ERROR")
     def p_hour(self):
         try:
-            file=open("/home/iwo/Desktop/server_client/server_client_rasp/workerFiles/"+format(self.cardNumb)+".txt","r")
+            file=open("C:/server_client_rasp/workerFiles/"+format(self.cardNumb)+".txt","r")
             content=file.read().splitlines()
             for line in content:
                 
@@ -67,21 +64,21 @@ class Unidentified:
         now = datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
         try:
-            file=open("/home/iwo/Desktop/server_client/server_client_rasp/Unidentified/"+"Unauthorisied"+".txt","a")
-            file.write("List of unauthorisied attempts to connect to the server valid from "+dt_string+'\n')
+            file=open("C:/server_client_rasp/Unidentified/"+"Unauthorisied"+".txt","w")                           #tworzenie pliku konfiguracyjnego
+            file.write("List of unauthorisied attempts to connect to the server valid from "+dt_string+'\n')      
             file.close()
         except:
             print("Undefined list initializing faile")
-        self.setOfUnident={0}
+        self.setOfUnident={0}                                                                #inicjacja zbioru numerów nieautoryzowanych 
         print("Done")
         
-    def addUndefined(self,num,name=""):
+    def addUndefined(self,num,name=""):                                         #dodanie zdażenia nieautoryzowanego
         now = datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-        self.setOfUnident.add(int(num))
+        self.setOfUnident.add(int(num))                                          #dodanie numeru do listy o ile nie jest w nim już
         try:
-            file=open("/home/iwo/Desktop/server_client/server_client_rasp/Unidentified/"+"Unauthorisied"+".txt","a")
-            file.write(name+": "+format(num)+"  "+dt_string+'\n')
+            file=open("C:/server_client_rasp/Unidentified/"+"Unauthorisied"+".txt","a")            
+            file.write(name+": "+format(num)+"  "+dt_string+'\n')                   #wpisanie numeru z datą oraz nazwą terminala z którego przyszło zgłoszenie
             file.close()
         except:
             print("Sorry an error occured, which can makes your list leaking data")
@@ -91,9 +88,9 @@ class Server:
 
 
     def __init__(self):
-        self.workerList=[]
-        self.unidentified=Unidentified()
-        
+        self.workerList=[]                         #inicjacja listy pracowników
+        self.unidentified=Unidentified()           #inicjacja obiektu Unidetified
+        self.terminalSet={""}                       #inicjacja zbioru obsługiwanych terminali
         
   
         
@@ -114,51 +111,61 @@ class Server:
             print("message received " ,str(message.payload.decode("utf-8")))
             check=False
             number=message.payload.decode("utf-8").split(":")
+            if number[0] in self.terminalSet:
             
-            
-            for el in self.workerList:
-                if int(number[1])==el.cardNumb:
-                    el.identified(number[0])
-                    check=True
-                    break
+                for el in self.workerList:
+                    if int(number[1])==el.cardNumb:
+                        el.identified(number[0])
+                        check=True
+                        break
                     
-            if check==False:
+                if check==False:
                 
-                self.unidentified.addUndefined(int(number[1]),number[0])
+                    self.unidentified.addUndefined(int(number[1]),number[0])
                
                    
         #broker_adress="192.168.69.139" //to od rasp
-        broker_adress="192.168.233.128"
+        broker_adress="DESKTOP-F4BSBEP" #comp lite
+        port=8883
         client = mqtt.Client()
         client.on_connect = on_connect
-        client.on_message = on_message     
-        client.connect(broker_adress)
+        client.on_message = on_message
+        client.tls_set("ca.crt")
+        client.username_pw_set(username='server', password='iwo123')
+        client.connect(broker_adress,port)
         print("Welcome!!! Press 'help' if you don't know what to do!")
         while True:
-            client.loop_start()
-            command = input()
-            if command=="add":
+            client.loop_start()                               #zaczęcie monitorowania brokera
+            command = input()                                 #czekanie na interackję 
+            if command=="add":                                #dodanie pracownika
                 name=input("New Worker name: ")
                 cardNum=input("Workers assigned card: ")
                 try:
                     self.addWorker(int(cardNum),name)
                 except:
                     print("Try again")
-            
-            if command=="delete":
+            if command=="add_ter":                          #dodanie terminalu
+                name=input("Name of terminal: ")
+                self.add_ter(name)
+            if command=="del_ter":                          #usunięcie terminalu
+                name=input("Name of terminal: ")
+                self.del_ter(name)   
+            if command=="delete":                           #usnięcie pracownika
                 cardNum=input("Woreker assigned card: ")
                 try:
                     self.removeWorker(int(cardNum))
                 except:
                     print("Try again")
-            if command=="help":
+            if command=="help":                              #wyświetlenie listy poleceń z objaśnieniami
                 print ("Press 'add' to add new employe or 'delete' to remove him or 'raport' to create csv file")
+                print("Type 'add_ter' to add teminal or 'del_ter' to remove it")
                 print ("If you want to exit type 'end'")
-            if command=="raport":
+            if command=="raport":                            #stworzenie raportu
                 self.create_raport()
-            if command=="end":
+            if command=="end":                               #zakończenie pracy programu
                 break
-            client.loop_stop()
+            
+            client.loop_stop()                              #zatrzymanie monitorowania brokera
                 
 
         
@@ -174,7 +181,7 @@ class Server:
             if el.cardNumb ==num:
                 try:
                     
-                    os.remove("/home/iwo/Desktop/server_client/server_client_rasp/workerFiles/"+format(el.cardNumb)+".txt")
+                    os.remove("C:/server_client_rasp/workerFiles/"+format(el.cardNumb)+".txt")
                     self.workerList.remove(el)
                     print("Done")
                     break
@@ -195,7 +202,11 @@ class Server:
         except:
             print("Creating raport failed!")
             
-
+    def add_ter(self,name):
+        self.terminalSet.add(name)
+    def del_ter(self,name):
+        if name in self.terminalSet:
+            self.terminalSet.remove(name)
         
             
                     
